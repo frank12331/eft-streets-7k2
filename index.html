@@ -13,6 +13,7 @@
   --ground:#13130E; --panel:#1C1B14; --panel-2:#23221A; --line:#36342A; --line-soft:#2A2820;
   --ink:#EAE5D5; --ink-2:#A79F87; --ink-3:#7A735F; --amber:#E3A63C; --amber-dim:#8A6B28; --rule:#4A4636;
   --mapbg:#1A1A16; --bad:#C2584F;
+  --ex-pmc:#2FCB8B; --ex-scav:#E39A2B; --ex-transit:#E2563A;
   --t-prapor:#B08D3F; --t-therapist:#4F9490; --t-skier:#C06A3A; --t-mechanic:#5D82B0;
   --t-ragman:#B0596A; --t-jaeger:#71944B; --t-fence:#8C8C8C; --t-peacekeeper:#5E9AC2;
   --t-lightkeeper:#C9B458; --t-other:#9A8F7A;
@@ -196,6 +197,31 @@ dialog.lb::backdrop{background:rgba(8,8,6,.82)}
 .lb__bar{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-2)}
 .lb__bar span{flex:1 1 auto;min-width:0}
 
+
+/* 撤離點 */
+.chip--sm{padding:5px 8px;font-size:11.5px}
+.chip--ex[aria-pressed="true"]{border-color:var(--ex-pmc);color:var(--ink)}
+.extypes{display:inline-flex;gap:4px;flex-wrap:wrap}
+.extypes.is-off{opacity:.35;pointer-events:none}
+.exdot{display:inline-block;width:9px;height:9px;border-radius:2px;flex:none}
+.exdot--pmc{background:var(--ex-pmc)} .exdot--scav{background:var(--ex-scav)} .exdot--transit{background:var(--ex-transit)}
+.ex{cursor:pointer}
+.ex__box{stroke:#0E0E0A;stroke-width:1.2}
+.ex--pmc .ex__box{fill:var(--ex-pmc)} .ex--scav .ex__box{fill:var(--ex-scav)} .ex--transit .ex__box{fill:var(--ex-transit)}
+.ex--shared .ex__box{fill:var(--ex-pmc);stroke:var(--ex-scav);stroke-width:2.2}
+.ex__art{fill:none;stroke:#0E0E0A;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.ex__label{font:600 9.5px var(--body);fill:var(--ink);paint-order:stroke;stroke:#0E0E0A;stroke-width:3px;pointer-events:none;display:none}
+svg.show-labels .ex__label{display:inline}
+.ex.is-off{opacity:.3}
+.ex.is-hid{display:none}
+.ex.is-on .ex__box{stroke:var(--ink);stroke-width:2.4}
+.exinfo{position:absolute;left:12px;bottom:12px;max-width:min(360px,calc(100% - 24px));background:rgba(19,19,14,.94);border:1px solid var(--line);border-left:3px solid var(--ex-pmc);padding:10px 34px 10px 12px;font-size:12.5px;color:var(--ink-2)}
+.exinfo b{color:var(--ink);font-size:13.5px;display:block;margin-bottom:2px}
+.exinfo .t{font:600 10.5px var(--mono);letter-spacing:.06em;margin-right:6px}
+.exinfo p{margin:6px 0 0;white-space:pre-line}
+.exinfo button{position:absolute;top:6px;right:6px;background:none;border:0;color:var(--ink-3);font-size:16px;cursor:pointer;line-height:1;padding:2px 6px}
+.exinfo button:hover{color:var(--ink)}
+
 /* 地圖切換、瀏覽篩選（多地圖） */
 .maps{display:flex;flex-wrap:wrap;gap:4px}
 .mapbtn{font:500 12px/1 var(--body);display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid var(--line-soft);border-radius:2px;background:transparent;color:var(--ink-3);cursor:pointer}
@@ -263,6 +289,15 @@ dialog.lb::backdrop{background:rgba(8,8,6,.82)}
       <button class="zb" type="button" id="zOut" aria-label="縮小">−</button>
       <button class="zb" type="button" id="zIn" aria-label="放大">+</button>
     </div>
+    <div class="toolbar">
+      <span class="tl">顯示</span>
+      <button class="chip chip--ex" type="button" id="exToggle" aria-pressed="true">撤離點</button>
+      <span class="extypes" id="exTypes">
+        <button class="chip chip--sm" type="button" data-ex="pmc" aria-pressed="true"><i class="exdot exdot--pmc"></i>PMC</button>
+        <button class="chip chip--sm" type="button" data-ex="scav" aria-pressed="false"><i class="exdot exdot--scav"></i>Scav</button>
+        <button class="chip chip--sm" type="button" data-ex="transit" aria-pressed="true"><i class="exdot exdot--transit"></i>轉移點</button>
+      </span>
+    </div>
     <div class="toolbar" id="traders"></div>
     <div class="viewport" id="vp">
       <div class="stage" id="stage">
@@ -271,12 +306,14 @@ dialog.lb::backdrop{background:rgba(8,8,6,.82)}
       </div>
       <div class="floorbadge" id="floorbadge"></div>
       <div class="empty" id="empty" hidden></div>
+      <div class="exinfo" id="exinfo" hidden></div>
     </div>
     <div class="maphint">
       <span class="lg"><svg width="14" height="14" viewBox="-7 -7 14 14"><circle r="6" fill="#A79F87"/></svg>要去的地點</span>
       <span class="lg"><svg width="14" height="14" viewBox="-7 -7 14 14"><circle r="5" fill="#14130E" stroke="#A79F87" stroke-width="2.2"/></svg>擇一刷新</span>
       <span class="lg"><svg width="14" height="14" viewBox="-7 -7 14 14"><rect x="-6" y="-6" width="12" height="12" rx="2" fill="#12110C" stroke="#E3A63C" stroke-width="1.4"/><path d="M-2.4 -1 A2.4 2.4 0 0 1 2.4 -1" fill="none" stroke="#E3A63C" stroke-width="1.4"/><rect x="-3.2" y="-1" width="6.4" height="4.4" rx=".8" fill="#E3A63C"/></svg>鑰匙門</span>
       <span class="lg"><svg width="14" height="14" viewBox="-7 -7 14 14"><rect x="-5" y="-5" width="10" height="10" transform="rotate(45)" fill="#12110C" stroke="#E3A63C" stroke-width="1.4"/><circle cx="-1.4" cy="0" r="1.6" fill="none" stroke="#E3A63C" stroke-width="1.2"/><path d="M0.2 0 H3.2" stroke="#E3A63C" stroke-width="1.2"/></svg>鑰匙刷點</span>
+      <span class="lg"><svg width="14" height="14" viewBox="-7 -7 14 14"><rect x="-6" y="-6" width="12" height="12" rx="3" fill="#2FCB8B" stroke="#0E0E0A" stroke-width="1"/><path d="M-3 0 H3 M0.8 -2.2 L3 0 L0.8 2.2" fill="none" stroke="#0E0E0A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>撤離點</span>
       <span style="margin-left:auto"><b>拖曳</b> 平移 · <b>滾輪</b> 縮放 · <b>Alt+滾輪</b> 換樓層</span>
     </div>
   </section>
@@ -441,8 +478,13 @@ document.getElementById("browseBody").addEventListener("click",e=>{
 
 /* ---------- 地圖 ---------- */
 const svg=document.getElementById("pins");
-const kmLayer=mk("g",{},svg), pinLayer=mk("g",{},svg);
-let pins=[], kms=[];
+const exLayer=mk("g",{},svg), kmLayer=mk("g",{},svg), pinLayer=mk("g",{},svg);
+let pins=[], kms=[], exs=[];
+const EX_TYPE={pmc:"PMC",scav:"Scav",shared:"PMC／Scav 共用",transit:"轉移點"};
+const EXTRACTS=D.extracts||[];
+let showEx=store.get("tarkov.ex")!=="0";
+let exOn=new Set((store.get("tarkov.extypes")||"pmc,transit").split(",").filter(Boolean));
+const exVisible=e=>showEx&&(e.type==="shared"?(exOn.has("pmc")||exOn.has("scav")):exOn.has(e.type));
 const mapimg=document.getElementById("mapimg");
 const MW=()=>MAPBY[curMap].width, MH=()=>MAPBY[curMap].height;
 const curKeyIds=()=>new Set(current.flatMap(c=>c.q.keys.map(k=>k.id)));
@@ -467,7 +509,32 @@ function renderFloors(){
     `<button class="floor" type="button" data-floor="${f.key}" aria-pressed="${f.key===floor}">${esc(f.name)}${used.has(f.key)?'<span class="floor__dot"></span>':''}</button>`).join("");
   return used;
 }
+function renderExtracts(){
+  exLayer.replaceChildren(); exs=[]; hideExInfo();
+  EXTRACTS.filter(e=>e.map===curMap).forEach(e=>{
+    const g=mk("g",{class:"ex ex--"+e.type},exLayer), inner=mk("g",{},g);
+    mk("rect",{x:-6.5,y:-6.5,width:13,height:13,rx:3,class:"ex__box"},inner);
+    mk("path",{d:"M-3.4 0 H3.4 M0.9 -2.6 L3.4 0 L0.9 2.6",class:"ex__art"},inner);
+    mk("text",{class:"ex__label",x:9,y:3.5},inner).textContent=e.name;
+    mk("title",{},g).textContent=`${e.name}（${EX_TYPE[e.type]}・${flName(curMap,e.floor)}）`;
+    g.addEventListener("click",ev=>{ev.stopPropagation(); if(dragMoved) return; showExInfo(e,g);});
+    exs.push({el:g,e});
+  });
+}
+const exinfo=document.getElementById("exinfo");
+function showExInfo(e,g){
+  exs.forEach(x=>x.el.classList.toggle("is-on",x.el===g));
+  const col=e.type==="scav"?"var(--ex-scav)":e.type==="transit"?"var(--ex-transit)":"var(--ex-pmc)";
+  exinfo.style.borderLeftColor=col;
+  exinfo.innerHTML=`<button type="button" aria-label="關閉">×</button><span class="t" style="color:${col}">${EX_TYPE[e.type]} · ${esc(flName(curMap,e.floor))}</span><b>${esc(e.name)}</b>${e.note?`<p>${esc(e.note)}</p>`:"<p>沒有特別條件。</p>"}`;
+  exinfo.hidden=false;
+}
+function hideExInfo(){exinfo.hidden=true;exs.forEach(x=>x.el.classList.remove("is-on"));}
+exinfo.addEventListener("click",e=>{if(e.target.closest("button"))hideExInfo();});
+exinfo.addEventListener("pointerdown",e=>e.stopPropagation());
+
 function renderPins(){
+  renderExtracts();
   pinLayer.replaceChildren(); kmLayer.replaceChildren(); pins=[]; kms=[];
   const keyIds=curKeyIds();
   D.keymarks.filter(m=>m.map===curMap&&keyIds.has(m.key)).forEach(m=>{
@@ -540,6 +607,11 @@ function paint(){
     p.el.classList.toggle("is-off",off); p.ft.style.display=off?"":"none";
     p.el.classList.toggle("is-on",p.q.id===sel);
   });
+  exs.forEach(x=>{
+    x.el.classList.toggle("is-hid",!exVisible(x.e));
+    x.el.classList.toggle("is-off",x.e.floor!==floor);
+  });
+  if(!exinfo.hidden&&!exs.some(x=>x.el.classList.contains("is-on")&&!x.el.classList.contains("is-hid")))hideExInfo();
   kms.forEach(k=>{
     const used=current.some(c=>vis(c.q)&&c.q.keys.some(x=>x.id===k.m.key));
     k.el.classList.toggle("is-hid",!used); k.el.classList.toggle("is-off",k.m.floor!==floor);
@@ -562,6 +634,19 @@ document.getElementById("traders").addEventListener("click",e=>{
   const t=b.dataset.trader; onTraders.has(t)?onTraders.delete(t):onTraders.add(t);
   b.setAttribute("aria-pressed",String(onTraders.has(t))); paint();
 });
+const exToggle=document.getElementById("exToggle"), exTypesEl=document.getElementById("exTypes");
+function syncExUI(){
+  exToggle.setAttribute("aria-pressed",String(showEx));
+  exTypesEl.classList.toggle("is-off",!showEx);
+  exTypesEl.querySelectorAll("[data-ex]").forEach(b=>b.setAttribute("aria-pressed",String(exOn.has(b.dataset.ex))));
+}
+exToggle.addEventListener("click",()=>{showEx=!showEx;store.set("tarkov.ex",showEx?"1":"0");syncExUI();paint();});
+exTypesEl.addEventListener("click",e=>{
+  const b=e.target.closest("[data-ex]"); if(!b) return;
+  const t=b.dataset.ex; exOn.has(t)?exOn.delete(t):exOn.add(t);
+  store.set("tarkov.extypes",[...exOn].join(",")); syncExUI(); paint();
+});
+syncExUI();
 const fk=document.getElementById("fKey");
 fk.addEventListener("click",()=>{keyOnly=!keyOnly;fk.setAttribute("aria-pressed",String(keyOnly));paint();});
 
@@ -665,6 +750,9 @@ function apply(){
   const s=(MW()/baseW)/k*Math.min(1.25,0.85+0.08*k);
   pins.forEach(p=>p.el.setAttribute("transform",`translate(${p.s.x} ${p.s.y}) scale(${s})`));
   kms.forEach(m=>m.el.setAttribute("transform",`translate(${m.m.x} ${m.m.y}) scale(${s})`));
+  const se=s*0.92;
+  exs.forEach(x=>x.el.setAttribute("transform",`translate(${x.e.x} ${x.e.y}) scale(${se})`));
+  svg.classList.toggle("show-labels",k>=2.2);
 }
 function clamp(){
   const r=vp.getBoundingClientRect(), w=baseW*k, h=baseW*(MH()/MW())*k;
