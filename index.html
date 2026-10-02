@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>街區任務查詢</title>
+<title>塔科夫任務查詢</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
@@ -195,6 +195,23 @@ dialog.lb::backdrop{background:rgba(8,8,6,.82)}
 .lb img{display:block;width:100%;height:auto}
 .lb__bar{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-2)}
 .lb__bar span{flex:1 1 auto;min-width:0}
+
+/* 地圖切換、瀏覽篩選（多地圖） */
+.maps{display:flex;flex-wrap:wrap;gap:4px}
+.mapbtn{font:500 12px/1 var(--body);display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid var(--line-soft);border-radius:2px;background:transparent;color:var(--ink-3);cursor:pointer}
+.mapbtn:hover{color:var(--ink);border-color:var(--rule)}
+.mapbtn.has{color:var(--ink);border-color:var(--rule)}
+.mapbtn b{font:600 10.5px/1 var(--mono);color:#16140D;background:var(--amber);padding:2px 4px;border-radius:2px}
+.mapbtn[aria-pressed="true"]{background:var(--amber);border-color:var(--amber);color:#16140D}
+.mapbtn[aria-pressed="true"] b{background:#16140D;color:var(--amber)}
+.bfilter{display:flex;flex-wrap:wrap;gap:4px;padding:2px 0 8px;border-bottom:1px solid var(--line-soft)}
+.bf{font:12px/1 var(--body);padding:5px 8px;border:1px solid var(--line-soft);border-radius:2px;background:transparent;color:var(--ink-2);cursor:pointer}
+.bf small{color:var(--ink-3);font:10.5px var(--mono)}
+.bf:hover{color:var(--ink);border-color:var(--rule)}
+.bf[aria-pressed="true"]{background:var(--panel-2);color:var(--amber);border-color:var(--amber-dim)}
+.browse__groups{display:grid;gap:10px}
+.q__sub{display:flex;gap:10px;flex-wrap:wrap;margin-top:2px}
+.q__maps{font-size:11.5px;color:var(--ink-3)}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 </style>
 </head>
@@ -203,9 +220,9 @@ dialog.lb::backdrop{background:rgba(8,8,6,.82)}
 <header class="masthead">
   <div class="mh">
     <div>
-      <p class="eyebrow">Streets of Tarkov · 街區</p>
-      <h1>街區任務查詢</h1>
-      <p class="mh__sub">貼上任務名（一行一個，或用逗號分隔），就會把目標、需要的鑰匙與物品、位置標點整理出來。完全離線，資料來自本機資料庫。</p>
+      <p class="eyebrow">Escape from Tarkov · 任務</p>
+      <h1>塔科夫任務查詢</h1>
+      <p class="mh__sub">貼上任務名（一行一個，或用逗號分隔），就會把目標、需要的鑰匙與物品、各地圖上的位置標點整理出來。</p>
       <p class="mh__meta"><span id="meta"></span> · <a href="help.html" style="color:var(--amber)">使用說明</a></p>
     </div>
     <form class="search" id="form">
@@ -224,12 +241,19 @@ dialog.lb::backdrop{background:rgba(8,8,6,.82)}
 <div class="browse">
   <details id="browse">
     <summary id="browseSum">瀏覽全部任務</summary>
-    <div class="browse__body" id="browseBody"></div>
+    <div class="browse__body">
+      <div class="bfilter" id="bfilter" role="group" aria-label="依地圖篩選"></div>
+      <div class="browse__groups" id="browseBody"></div>
+    </div>
   </details>
 </div>
 
 <main class="board">
   <section class="mapcol" aria-label="地圖">
+    <div class="toolbar">
+      <span class="tl">地圖</span>
+      <div class="maps" id="maps" role="group" aria-label="切換地圖"></div>
+    </div>
     <div class="toolbar">
       <span class="tl">樓層</span>
       <div class="floors" id="floors"></div>
@@ -242,11 +266,11 @@ dialog.lb::backdrop{background:rgba(8,8,6,.82)}
     <div class="toolbar" id="traders"></div>
     <div class="viewport" id="vp">
       <div class="stage" id="stage">
-        <img id="mapimg" alt="街區地圖" draggable="false">
+        <img id="mapimg" alt="地圖" draggable="false">
         <svg id="pins" aria-hidden="true"></svg>
       </div>
       <div class="floorbadge" id="floorbadge"></div>
-      <div class="empty" id="empty" hidden>還沒有任務。在上方輸入任務名，或展開「瀏覽全部任務」點選。</div>
+      <div class="empty" id="empty" hidden></div>
     </div>
     <div class="maphint">
       <span class="lg"><svg width="14" height="14" viewBox="-7 -7 14 14"><circle r="6" fill="#A79F87"/></svg>要去的地點</span>
@@ -290,14 +314,12 @@ dialog.lb::backdrop{background:rgba(8,8,6,.82)}
 <script>
 (function(){
 const D=window.TARKOV;
-if(!D){document.body.innerHTML='<p style="padding:40px;color:#EAE5D5">資料載入失敗，請重新整理頁面。</p>';return;}
+if(!D||!D.maps){document.body.innerHTML='<p style="padding:40px;color:#EAE5D5">資料載入失敗，請重新整理頁面。</p>';return;}
 
 const TRADER_VAR={Prapor:"--t-prapor",Therapist:"--t-therapist",Skier:"--t-skier",Mechanic:"--t-mechanic",Ragman:"--t-ragman",
   Jaeger:"--t-jaeger",Fence:"--t-fence",Peacekeeper:"--t-peacekeeper",Lightkeeper:"--t-lightkeeper"};
 const tcol=t=>`var(${TRADER_VAR[t]||"--t-other"})`;
-const MAP_W=D.map.width, MAP_H=D.map.height;
-const FLOORS=D.map.floors;
-const FL=Object.fromEntries(FLOORS.map(f=>[f.key,f.name]));
+const MAPS=D.maps, MAPBY=Object.fromEntries(MAPS.map(m=>[m.id,m]));
 const ICONS=new Set(D.icons||[]);
 const NS="http://www.w3.org/2000/svg";
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -305,13 +327,14 @@ const mk=(tag,a={},p)=>{const e=document.createElementNS(NS,tag);for(const k in 
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 const icon=id=>ICONS.has(id)?`<img src="icons/${id}.webp" alt="" loading="lazy">`:"";
 const keyInfo=Object.fromEntries(D.keys.map(k=>[k.id,k]));
-const hasPins=q=>q.spots.some(s=>s.x!==null);
+const pinned=s=>s.x!==null&&s.map&&MAPBY[s.map];
+const hasPins=q=>q.spots.some(pinned);
+const flName=(mapId,key)=>{const f=MAPBY[mapId]&&MAPBY[mapId].floors.find(f=>f.key===key);return f?f.name:(key==null||key==="None"?"":(+key<0?"B"+(-key):key+"F"));};
+const mapName=id=>MAPBY[id]?MAPBY[id].name:"";
 
-document.getElementById("meta").textContent=`資料庫：${D.quests.length} 個任務 · 建置於 ${D.built}`;
+document.getElementById("meta").textContent=`資料庫：${D.quests.length} 個任務 · ${MAPS.length} 張地圖 · 建置於 ${D.built}`;
 
-/* ---------- name matching ---------- */
-// 比對前先把輸入轉成簡體（用 build 時產生的精簡對照表），再和原站的簡體名稱比。
-// 這樣「發財計畫」「發財計劃」「发财计划」都會對到同一個任務。
+/* ---------- 名稱比對：輸入先轉簡體，再和原站名稱比 ---------- */
 const FOLD=D.fold||{phrases:{},chars:{}};
 const PHRASES=Object.keys(FOLD.phrases).sort((a,b)=>b.length-a.length);
 const PMAX=PHRASES.length?PHRASES[0].length:0;
@@ -327,7 +350,6 @@ function toCn(s){
 }
 const norm=s=>toCn(String(s||"").toLowerCase()).replace(/[\s\-–—－·・、,，.。!！?？()（）【】「」『』"'：:]/g,"");
 const index=D.quests.map(q=>({q,keys:[...new Set([q.name,q.name_cn,...(q.aliases||[])].map(norm))]}));
-// 相近程度：兩字一組（bigram）的重疊比例，給「是不是要找」用
 function bigrams(s){const a=[];for(let i=0;i<s.length-1;i++)a.push(s.slice(i,i+2));return a.length?a:[s];}
 function similar(a,b){
   const A=bigrams(a),B=bigrams(b);let m=0;const used=new Array(B.length).fill(false);
@@ -346,14 +368,13 @@ function lookup(raw){
   }
   return {name,hits:hit.map(e=>e.q),suggest};
 }
-function parseInput(text){
-  return text.split(/[\n,，;；]+/).map(s=>s.trim()).filter(Boolean);
-}
+const parseInput=text=>text.split(/[\n,，;；]+/).map(s=>s.trim()).filter(Boolean);
 
-/* ---------- state ---------- */
-let current=[];   // [{q, query}]
-let floor=FLOORS.some(f=>f.key==="1")?"1":FLOORS[0].key, sel=null, keyOnly=false;
+/* ---------- 狀態 ---------- */
+let current=[];                      // [{q, query}]
+let curMap=null, floor=null, sel=null, keyOnly=false;
 let onTraders=new Set();
+const floorByMap={};
 
 const qbox=document.getElementById("qbox");
 function run(text,save=true){
@@ -375,8 +396,6 @@ function run(text,save=true){
   if(save){store.set("tarkov.q",text); history.replaceState(null,"","#q="+encodeURIComponent(lines.join(",")));}
   render();
 }
-
-// 點「是不是要找」的建議：把那一行換成正確名稱再查一次
 document.getElementById("result").addEventListener("click",e=>{
   const b=e.target.closest(".sug"); if(!b) return;
   const lines=parseInput(qbox.value).map(l=>l.replace(/^\s*\d+\s*[.、)）]\s*/,"").trim());
@@ -385,17 +404,32 @@ document.getElementById("result").addEventListener("click",e=>{
   qbox.value=lines.join("\n"); run(qbox.value);
 });
 
-/* ---------- browse drawer ---------- */
+/* ---------- 瀏覽全部任務（可依地圖篩選） ---------- */
+let bmap=store.get("tarkov.bmap")||"all";
+function inBrowseMap(q){
+  if(bmap==="all") return true;
+  if(bmap==="none") return !q.map_ids.length;
+  return q.map_ids.includes(bmap);
+}
 function renderBrowse(){
-  const by={};
-  D.quests.forEach(q=>(by[q.trader]=by[q.trader]||[]).push(q));
   const inSet=new Set(current.map(c=>c.q.id));
+  const count=f=>D.quests.filter(f).length;
+  const opts=[["all","全部",D.quests.length],...MAPS.map(m=>[m.id,m.name,count(q=>q.map_ids.includes(m.id))]),["none","不限地圖",count(q=>!q.map_ids.length)]];
+  if(!opts.some(o=>o[0]===bmap)) bmap="all";
+  document.getElementById("bfilter").innerHTML=opts.filter(o=>o[2]).map(([id,name,n])=>
+    `<button type="button" class="bf" data-bmap="${id}" aria-pressed="${id===bmap}">${esc(name)} <small>${n}</small></button>`).join("");
+  const by={};
+  D.quests.filter(inBrowseMap).forEach(q=>(by[q.trader]=by[q.trader]||[]).push(q));
   document.getElementById("browseSum").textContent=`瀏覽全部 ${D.quests.length} 個任務（點一下加入／移除查詢）`;
   document.getElementById("browseBody").innerHTML=Object.keys(by).sort().map(t=>`
     <div class="bgroup"><div class="bgroup__t" style="color:${tcol(t)}">${esc(t)}</div>
-    <div class="bgroup__list">${by[t].map(q=>`<button type="button" class="bq${inSet.has(q.id)?" is-in":""}${hasPins(q)?"":" is-nomap"}" data-id="${q.id}" title="${hasPins(q)?"":"地圖上沒有標點"}">${esc(q.name)}</button>`).join("")}</div></div>`).join("")
-    +`<div class="dim">名稱後面有「·」的任務在地圖上沒有標點（例如擊殺、存活類）。</div>`;
+    <div class="bgroup__list">${by[t].map(q=>`<button type="button" class="bq${inSet.has(q.id)?" is-in":""}${hasPins(q)?"":" is-nomap"}" data-id="${q.id}" title="${esc(q.maps.join("、")||"不限地圖")}${hasPins(q)?"":"（沒有標點）"}">${esc(q.name)}</button>`).join("")}</div></div>`).join("")
+    +`<div class="dim">名稱後面有「·」的任務在地圖上沒有標點（例如擊殺、存活、不限地圖的任務）。</div>`;
 }
+document.getElementById("bfilter").addEventListener("click",e=>{
+  const b=e.target.closest(".bf"); if(!b) return;
+  bmap=b.dataset.bmap; store.set("tarkov.bmap",bmap); renderBrowse();
+});
 document.getElementById("browseBody").addEventListener("click",e=>{
   const b=e.target.closest(".bq"); if(!b) return;
   const q=D.quests.find(x=>x.id===b.dataset.id);
@@ -405,23 +439,38 @@ document.getElementById("browseBody").addEventListener("click",e=>{
   qbox.value=lines.join("\n"); run(qbox.value);
 });
 
-/* ---------- map ---------- */
+/* ---------- 地圖 ---------- */
 const svg=document.getElementById("pins");
-svg.setAttribute("viewBox",`0 0 ${MAP_W} ${MAP_H}`);
 const kmLayer=mk("g",{},svg), pinLayer=mk("g",{},svg);
 let pins=[], kms=[];
 const mapimg=document.getElementById("mapimg");
+const MW=()=>MAPBY[curMap].width, MH=()=>MAPBY[curMap].height;
+const curKeyIds=()=>new Set(current.flatMap(c=>c.q.keys.map(k=>k.id)));
+
+function mapCounts(){
+  const cnt={};
+  current.forEach(c=>new Set(c.q.spots.filter(pinned).map(s=>s.map)).forEach(m=>cnt[m]=(cnt[m]||0)+1));
+  return cnt;
+}
+function renderMaps(){
+  const cnt=mapCounts();
+  document.getElementById("maps").innerHTML=MAPS.map(m=>
+    `<button class="mapbtn${cnt[m.id]?" has":""}" type="button" data-map="${m.id}" aria-pressed="${m.id===curMap}" title="${cnt[m.id]?`${cnt[m.id]} 個查詢中的任務在這張地圖上有標點`:"查詢中的任務在這張地圖上沒有標點"}">${esc(m.name)}${cnt[m.id]?`<b>${cnt[m.id]}</b>`:""}</button>`).join("");
+}
+document.getElementById("maps").addEventListener("click",e=>{const b=e.target.closest(".mapbtn");if(b&&b.dataset.map!==curMap)setMap(b.dataset.map);});
 
 function renderFloors(){
-  const used=new Set([...current.flatMap(c=>c.q.spots.filter(s=>s.x!==null).map(s=>s.floor)),
-    ...D.keymarks.filter(m=>current.some(c=>c.q.keys.some(k=>k.id===m.key))).map(m=>m.floor)]);
-  document.getElementById("floors").innerHTML=FLOORS.map(f=>
+  const m=MAPBY[curMap], keyIds=curKeyIds();
+  const used=new Set([...current.flatMap(c=>c.q.spots.filter(s=>pinned(s)&&s.map===curMap).map(s=>s.floor)),
+    ...D.keymarks.filter(k=>k.map===curMap&&keyIds.has(k.key)).map(k=>k.floor)]);
+  document.getElementById("floors").innerHTML=m.floors.map(f=>
     `<button class="floor" type="button" data-floor="${f.key}" aria-pressed="${f.key===floor}">${esc(f.name)}${used.has(f.key)?'<span class="floor__dot"></span>':''}</button>`).join("");
+  return used;
 }
 function renderPins(){
   pinLayer.replaceChildren(); kmLayer.replaceChildren(); pins=[]; kms=[];
-  const keyIds=new Set(current.flatMap(c=>c.q.keys.map(k=>k.id)));
-  D.keymarks.filter(m=>keyIds.has(m.key)).forEach(m=>{
+  const keyIds=curKeyIds();
+  D.keymarks.filter(m=>m.map===curMap&&keyIds.has(m.key)).forEach(m=>{
     const g=mk("g",{class:"km"},kmLayer), inner=mk("g",{},g);
     if(m.type==="door"){
       inner.setAttribute("transform","translate(9 -9)");
@@ -433,12 +482,13 @@ function renderPins(){
       mk("circle",{cx:-1.8,cy:0,r:2,class:"km__art"},inner);
       mk("path",{d:"M0.2 0 H4 M2.6 0 V1.8",class:"km__art"},inner);
     }
+    mk("title",{},g).textContent=`${keyInfo[m.key]?keyInfo[m.key].name:"鑰匙"} ${m.type==="door"?"的門":"刷點"}（${flName(curMap,m.floor)}）`;
     kms.push({el:g,m});
   });
   current.forEach((c,ci)=>{
     const q=c.q, n=ci+1, col=tcol(q.trader);
     q.spots.forEach(s=>{
-      if(s.x===null) return;
+      if(!pinned(s)||s.map!==curMap) return;
       const g=mk("g",{class:"pin"},pinLayer), inner=mk("g",{},g);
       mk("circle",{r:13,class:"pin__ring"},inner);
       if(s.kind==="spawn"){
@@ -448,18 +498,37 @@ function renderPins(){
         mk("circle",{r:9.5,class:"pin__disc",fill:col},inner);
         mk("text",{class:"pin__label pin__label--solid",y:.5},inner).textContent=n;
       }
-      const ft=mk("text",{class:"pin__ftag",x:12,y:13},inner); ft.textContent=FL[s.floor]||s.floor;
-      mk("title",{},g).textContent=`${n}. ${q.name} — ${s.label||s.title||""}（${FL[s.floor]||s.floor}）`;
+      const ft=mk("text",{class:"pin__ftag",x:12,y:13},inner); ft.textContent=flName(curMap,s.floor);
+      mk("title",{},g).textContent=`${n}. ${q.name} — ${s.label||s.title||""}（${flName(curMap,s.floor)}）`;
       g.addEventListener("click",e=>{e.stopPropagation(); if(dragMoved) return; select(q.id,true);});
       pins.push({el:g,q,s,ft});
     });
   });
-  document.getElementById("empty").hidden=current.length>0;
-  apply();
+  const empty=document.getElementById("empty");
+  if(!current.length){empty.textContent="還沒有任務。在上方輸入任務名，或展開「瀏覽全部任務」點選。";empty.hidden=false;}
+  else if(!pins.length){
+    const other=Object.keys(mapCounts()).map(mapName).filter(Boolean);
+    empty.textContent=other.length?`查詢中的任務在${mapName(curMap)}沒有標點。有標點的地圖：${other.join("、")}`:"查詢中的任務在地圖上都沒有標點。";
+    empty.hidden=false;
+  }else empty.hidden=true;
+}
+function setMap(id){
+  curMap=id; const m=MAPBY[id]; store.set("tarkov.map",id);
+  svg.setAttribute("viewBox",`0 0 ${m.width} ${m.height}`);
+  document.querySelectorAll(".mapbtn").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.map===id)));
+  renderPins();
+  const used=current.flatMap(c=>c.q.spots.filter(s=>pinned(s)&&s.map===id).map(s=>s.floor));
+  let f=floorByMap[id];
+  if(!f||!m.floors.some(x=>x.key===f)||(used.length&&!used.includes(f))){
+    f=(m.floors.some(x=>x.key==="1")&&(!used.length||used.includes("1")))?"1":(used[0]||(m.floors[0]&&m.floors[0].key));
+  }
+  floor=f; renderFloors(); fit(); setFloor(f);
 }
 function setFloor(f){
-  floor=f; const F=FLOORS.find(x=>x.key===f);
-  mapimg.src=F.file; document.getElementById("floorbadge").textContent=F.name;
+  floor=f; floorByMap[curMap]=f;
+  const m=MAPBY[curMap], F=m.floors.find(x=>x.key===f)||m.floors[0];
+  if(F){ if(!mapimg.src.endsWith(F.file)) mapimg.src=F.file; }
+  document.getElementById("floorbadge").textContent=`${m.name} · ${F?F.name:""}`;
   document.querySelectorAll(".floor").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.floor===f)));
   paint();
 }
@@ -499,14 +568,16 @@ fk.addEventListener("click",()=>{keyOnly=!keyOnly;fk.setAttribute("aria-pressed"
 function select(id,scroll,force){
   sel=(sel===id&&!force)?null:id;
   if(sel){
-    const q=current.find(c=>c.q.id===sel).q, sp=q.spots.filter(s=>s.x!==null);
-    if(sp.length&&!sp.some(s=>s.floor===floor)) setFloor(sp[0].floor);
+    const q=current.find(c=>c.q.id===sel).q, sp=q.spots.filter(pinned);
+    if(sp.length&&!sp.some(s=>s.map===curMap)) setMap(sp[0].map);
+    const here=sp.filter(s=>s.map===curMap);
+    if(here.length&&!here.some(s=>s.floor===floor)) setFloor(here[0].floor);
   }
   paint();
   if(sel&&scroll){const i=current.findIndex(c=>c.q.id===sel);const r=document.getElementById("q"+i);if(r)r.scrollIntoView({block:"nearest",behavior:"smooth"});}
 }
 
-/* ---------- cards ---------- */
+/* ---------- 任務卡 ---------- */
 const KIND={req:["is-key","🔑 ",""],opt:["is-key is-opt","🔑 ","可選"],hand:["is-hand","上交 ",""]};
 function renderList(){
   const list=document.getElementById("list");
@@ -518,9 +589,11 @@ function renderList(){
       ...q.keys.map(k=>{const [cls,pre,suf]=KIND[k.kind];return `<span class="${cls}">${icon(k.id)}${pre}${esc(k.name)}${suf?`<small>${suf}</small>`:""}</span>`;}),
       ...q.items.map(it=>`<span>${icon(it.id)}${esc(it.name)} ×${it.n}${it.fir?'<small>戰局中找到</small>':''}</span>`)
     ].join("");
+    const multiMap=new Set(q.spots.filter(pinned).map(s=>s.map)).size>1;
     const spots=q.spots.map((s,si)=>{
       const title=s.label||s.title||(s.kind==="text"?"攻略":"");
-      const ft=s.x===null?`<span class="ftag ftag--none">${s.other_map?"其他地圖":"無標點"}</span>`:`<span class="ftag">${esc(FL[s.floor]||s.floor)}</span><button class="go" type="button" data-i="${i}" data-s="${si}">定位 ▸</button>`;
+      const where=pinned(s)?((multiMap?mapName(s.map)+" · ":"")+flName(s.map,s.floor)):"";
+      const ft=pinned(s)?`<span class="ftag">${esc(where)}</span><button class="go" type="button" data-i="${i}" data-s="${si}">定位 ▸</button>`:`<span class="ftag ftag--none">無標點</span>`;
       const th=s.images.length?`<div class="thumbs">${s.images.map((im,j)=>`<button class="thumb" type="button" data-i="${i}" data-s="${si}" data-j="${j}" aria-label="放大截圖"><img src="${im}" alt="" loading="lazy"></button>`).join("")}</div>`:"";
       return `<div class="spot"><div class="spot__h"><span class="spot__t${s.kind==="spawn"?" is-spawn":""}">${esc(title)}</span>${ft}</div>${s.note?`<p class="spot__n">${esc(s.note)}</p>`:""}${th}</div>`;
     }).join("");
@@ -529,8 +602,8 @@ function renderList(){
       <div class="q__top"><span class="q__num">${String(n).padStart(2,"0")}</span>
         <h3 class="q__name"><button type="button" data-sel="${i}">${esc(q.name)}</button></h3>
         <span class="q__trader">${esc(q.trader)}${q.ll?" · "+esc(q.ll):""}</span>${lock}
-        <a class="q__src" href="${q.url}" target="_blank" rel="noopener" title="在原站開啟（需連網）">原站 ↗</a></div>
-      ${queryNote?`<div>${queryNote}</div>`:""}
+        <a class="q__src" href="${q.url}" target="_blank" rel="noopener" title="在原站開啟">原站 ↗</a></div>
+      <div class="q__sub"><span class="q__maps">${esc(q.maps.join("、")||"不限地圖")}</span>${queryNote}</div>
       <div class="q__body">
         <div class="row"><span class="k">目標</span><div class="v"><ul>${q.goals.map(g=>`<li>${esc(g)}</li>`).join("")}</ul></div></div>
         ${need?`<div class="row"><span class="k">需要</span><div class="v need">${need}</div></div>`:""}
@@ -543,7 +616,7 @@ function renderList(){
 }
 document.getElementById("list").addEventListener("click",e=>{
   const s=e.target.closest("[data-sel]");
-  if(s){const q=current[s.dataset.sel].q;select(q.id,false,true);const sp=q.spots.find(x=>x.x!==null);if(sp)focusSpot(sp);return;}
+  if(s){const q=current[s.dataset.sel].q;select(q.id,false,true);const sp=q.spots.find(x=>pinned(x)&&x.map===curMap)||q.spots.find(pinned);if(sp)focusSpot(sp);return;}
   const go=e.target.closest(".go");
   if(go){const q=current[go.dataset.i].q;select(q.id,false,true);focusSpot(q.spots[go.dataset.s]);
     if(innerWidth<=1080)document.getElementById("vp").scrollIntoView({block:"center",behavior:"smooth"});return;}
@@ -551,16 +624,16 @@ document.getElementById("list").addEventListener("click",e=>{
   if(th) openLB(current[th.dataset.i].q,+th.dataset.s,+th.dataset.j);
 });
 
-/* ---------- keys table ---------- */
+/* ---------- 鑰匙清單 ---------- */
 function renderKeys(){
-  const ids=[...new Set(current.flatMap(c=>c.q.keys.map(k=>k.id)))];
+  const ids=[...curKeyIds()];
   document.getElementById("keysSec").hidden=!ids.length;
   const tagOf={req:["tag--req","必備"],opt:["tag--opt","可選"],hand:["tag--hand","上交"]};
   document.getElementById("keyrows").innerHTML=ids.map(id=>{
     const k=keyInfo[id]; if(!k) return "";
     const uses=k.quests.filter(x=>current.some(c=>c.q.id===x.id));
-    const marks=D.keymarks.map((m,i)=>[m,i]).filter(([m])=>m.key===id);
-    const btns=marks.map(([m,i])=>`<button class="go" type="button" data-km="${i}">${m.type==="door"?"門":"刷點"} ${esc(FL[m.floor]||m.floor)} ▸</button>`).join(" ");
+    const marks=D.keymarks.map((m,i)=>[m,i]).filter(([m])=>m.key===id&&MAPBY[m.map]);
+    const btns=marks.map(([m,i])=>`<button class="go" type="button" data-km="${i}">${m.type==="door"?"門":"刷點"} ${esc(mapName(m.map))} ${esc(flName(m.map,m.floor))} ▸</button>`).join(" ");
     const notes=marks.filter(([m])=>m.note).map(([m])=>`<div class="dim">${m.type==="spawn"?"刷點：":""}${esc(m.note)}</div>`).join("");
     const usesN=k.uses||"—";
     return `<tr><td><div class="kn">${icon(id)}<span>${esc(k.name)}</span></div></td>
@@ -572,34 +645,38 @@ function renderKeys(){
 }
 document.getElementById("keyrows").addEventListener("click",e=>{
   const b=e.target.closest("[data-km]"); if(!b) return;
-  const m=D.keymarks[+b.dataset.km]; setFloor(m.floor); focusXY(m.x,m.y);
+  const m=D.keymarks[+b.dataset.km];
+  if(m.map!==curMap) setMap(m.map);
+  setFloor(m.floor); focusXY(m.x,m.y);
   document.getElementById("vp").scrollIntoView({block:"center",behavior:"smooth"});
 });
 
-/* ---------- pan / zoom ---------- */
+/* ---------- 平移 / 縮放 ---------- */
 const vp=document.getElementById("vp"), stage=document.getElementById("stage");
 let k=1,tx=0,ty=0,baseW=1;
 function fit(){
-  const r=vp.getBoundingClientRect(), sc=Math.min(r.width/MAP_W,r.height/MAP_H);
-  baseW=MAP_W*sc; stage.style.width=baseW+"px"; k=1; tx=(r.width-baseW)/2; ty=(r.height-MAP_H*sc)/2; apply();
+  if(!curMap) return;
+  const r=vp.getBoundingClientRect(), sc=Math.min(r.width/MW(),r.height/MH());
+  baseW=MW()*sc; stage.style.width=baseW+"px"; k=1; tx=(r.width-baseW)/2; ty=(r.height-MH()*sc)/2; apply();
 }
 function apply(){
+  if(!curMap) return;
   stage.style.transform=`translate(${tx}px,${ty}px) scale(${k})`;
-  const s=(MAP_W/baseW)/k*Math.min(1.25,0.85+0.08*k);
+  const s=(MW()/baseW)/k*Math.min(1.25,0.85+0.08*k);
   pins.forEach(p=>p.el.setAttribute("transform",`translate(${p.s.x} ${p.s.y}) scale(${s})`));
   kms.forEach(m=>m.el.setAttribute("transform",`translate(${m.m.x} ${m.m.y}) scale(${s})`));
 }
 function clamp(){
-  const r=vp.getBoundingClientRect(), w=baseW*k, h=baseW*(MAP_H/MAP_W)*k;
+  const r=vp.getBoundingClientRect(), w=baseW*k, h=baseW*(MH()/MW())*k;
   tx=w<=r.width?(r.width-w)/2:Math.min(0,Math.max(r.width-w,tx));
   ty=h<=r.height?(r.height-h)/2:Math.min(0,Math.max(r.height-h,ty));
 }
-function zoomAt(cx,cy,f){const nk=Math.max(1,Math.min(10,k*f));if(nk===k)return;tx=cx-(cx-tx)*(nk/k);ty=cy-(cy-ty)*(nk/k);k=nk;clamp();apply();}
-function focusXY(x,y){const r=vp.getBoundingClientRect();k=Math.max(k,3.2);const sc=baseW/MAP_W;tx=r.width/2-x*sc*k;ty=r.height/2-y*sc*k;clamp();apply();}
-function focusSpot(s){if(!s||s.x===null)return;if(s.floor!==floor)setFloor(s.floor);focusXY(s.x,s.y);}
+function zoomAt(cx,cy,f){const nk=Math.max(1,Math.min(12,k*f));if(nk===k)return;tx=cx-(cx-tx)*(nk/k);ty=cy-(cy-ty)*(nk/k);k=nk;clamp();apply();}
+function focusXY(x,y){const r=vp.getBoundingClientRect();k=Math.max(k,3.2);const sc=baseW/MW();tx=r.width/2-x*sc*k;ty=r.height/2-y*sc*k;clamp();apply();}
+function focusSpot(s){if(!s||!pinned(s))return;if(s.map!==curMap)setMap(s.map);if(s.floor!==floor)setFloor(s.floor);focusXY(s.x,s.y);}
 vp.addEventListener("wheel",e=>{
   e.preventDefault();
-  if(e.altKey){const i=FLOORS.findIndex(f=>f.key===floor),j=Math.max(0,Math.min(FLOORS.length-1,i+(e.deltaY<0?1:-1)));if(j!==i)setFloor(FLOORS[j].key);return;}
+  if(e.altKey){const F=MAPBY[curMap].floors,i=F.findIndex(f=>f.key===floor),j=Math.max(0,Math.min(F.length-1,i+(e.deltaY<0?1:-1)));if(j!==i)setFloor(F[j].key);return;}
   const r=vp.getBoundingClientRect();zoomAt(e.clientX-r.left,e.clientY-r.top,e.deltaY<0?1.2:1/1.2);
 },{passive:false});
 // 拖曳平移；手機上兩指縮放
@@ -623,7 +700,7 @@ vp.addEventListener("pointermove",e=>{
 const endDrag=e=>{
   ptrs.delete(e.pointerId);
   if(ptrs.size<2)pinch=null;
-  if(ptrs.size===1){const p=[...ptrs.values()][0];drag={x:p.x,y:p.y,tx,ty};return;}   // 兩指放開一指後接著拖
+  if(ptrs.size===1){const p=[...ptrs.values()][0];drag={x:p.x,y:p.y,tx,ty};return;}
   drag=null;vp.classList.remove("is-drag");setTimeout(()=>{dragMoved=false},0);
 };
 vp.addEventListener("pointerup",endDrag);vp.addEventListener("pointercancel",endDrag);
@@ -632,7 +709,7 @@ document.getElementById("zOut").onclick=()=>{const r=vp.getBoundingClientRect();
 document.getElementById("zReset").onclick=fit;
 addEventListener("resize",fit);
 
-/* ---------- lightbox ---------- */
+/* ---------- 截圖燈箱 ---------- */
 const lb=document.getElementById("lb"),lbimg=document.getElementById("lbimg"),lbcap=document.getElementById("lbcap");
 let lbList=[],lbI=0;
 function openLB(q,si,j){
@@ -640,18 +717,27 @@ function openLB(q,si,j){
   lbI=q.spots.slice(0,si).reduce((a,s)=>a+s.images.length,0)+j; showLB(); if(!lb.open)lb.showModal();
 }
 function showLB(){const it=lbList[lbI];lbimg.src=it.src;lbcap.textContent=`${it.cap}　${lbI+1} / ${lbList.length}`;}
-document.getElementById("lbprev").onclick=()=>{lbI=(lbI-1+lbList.length)%lbList.length;showLB();};
-document.getElementById("lbnext").onclick=()=>{lbI=(lbI+1)%lbList.length;showLB();};
+const lbprev=document.getElementById("lbprev"), lbnext=document.getElementById("lbnext");
+lbprev.onclick=()=>{lbI=(lbI-1+lbList.length)%lbList.length;showLB();};
+lbnext.onclick=()=>{lbI=(lbI+1)%lbList.length;showLB();};
 document.getElementById("lbclose").onclick=()=>lb.close();
 lb.addEventListener("click",e=>{if(e.target===lb)lb.close();});
 lb.addEventListener("keydown",e=>{if(e.key==="ArrowRight")lbnext.click();if(e.key==="ArrowLeft")lbprev.click();});
 
-/* ---------- glue ---------- */
+/* ---------- 串起來 ---------- */
+const DEFAULT_MAP=(MAPS.find(m=>m.name_cn==="塔科夫街区")||MAPS[0]).id;
 function render(){
-  renderBrowse(); renderTraders(); renderFloors(); renderList(); renderKeys(); renderPins();
-  const first=current.flatMap(c=>c.q.spots).find(s=>s.x!==null);
-  setFloor(first&&!current.flatMap(c=>c.q.spots).some(s=>s.x!==null&&s.floor===floor)?first.floor:floor);
+  renderBrowse(); renderTraders(); renderList(); renderKeys();
+  const cnt=mapCounts();
+  let target=curMap||store.get("tarkov.map")||DEFAULT_MAP;
+  if(!MAPBY[target]) target=DEFAULT_MAP;
+  if(!cnt[target]){                                     // 目前地圖沒有標點：切到標點最多的地圖
+    const best=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
+    if(best) target=best[0];
+  }
+  curMap=target; renderMaps(); setMap(target);
 }
+
 document.getElementById("form").addEventListener("submit",e=>{e.preventDefault();run(qbox.value);});
 qbox.addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();run(qbox.value);}});
 document.getElementById("clear").onclick=()=>{qbox.value="";run("");qbox.focus();};
@@ -659,9 +745,8 @@ document.getElementById("clear").onclick=()=>{qbox.value="";run("");qbox.focus()
 const fromHash=decodeURIComponent((location.hash.match(/#q=(.*)/)||[])[1]||"");
 const initial=fromHash?fromHash.split(",").join("\n"):(store.get("tarkov.q")??"美味香腸\n獵人之路 大動作\n芭蕾舞者\n人口普查\n老賴\n審計");
 qbox.value=initial;
-mapimg.addEventListener("load",()=>{ if(baseW<=1) fit(); },{once:true});
-mapimg.src=FLOORS.find(f=>f.key===floor).file;
-fit(); run(initial,false);
+mapimg.addEventListener("load",()=>{ if(baseW<=1) fit(); });
+run(initial,false);
 })();
 </script>
 </body>
