@@ -239,6 +239,7 @@ svg.show-labels .ex__label{display:inline}
 .browse__groups{display:grid;gap:10px}
 .q__sub{display:flex;gap:10px;flex-wrap:wrap;margin-top:2px}
 .q__maps{font-size:11.5px;color:var(--ink-3)}
+.q__en{font:500 12px/1.4 var(--display);letter-spacing:.03em;color:var(--ink-2)}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 </style>
 </head>
@@ -249,16 +250,16 @@ svg.show-labels .ex__label{display:inline}
     <div>
       <p class="eyebrow">Escape from Tarkov · 任務</p>
       <h1>塔科夫任務查詢</h1>
-      <p class="mh__sub">貼上任務名（一行一個，或用逗號分隔），就會把目標、需要的鑰匙與物品、各地圖上的位置標點整理出來。</p>
+      <p class="mh__sub">貼上任務名（中文或英文都可以；一行一個，或用逗號分隔），就會把目標、需要的鑰匙與物品、各地圖上的位置標點整理出來。</p>
       <p class="mh__meta"><span id="meta"></span> · <a href="help.html" style="color:var(--amber)">使用說明</a></p>
     </div>
     <form class="search" id="form">
       <label for="qbox">任務名</label>
-      <textarea id="qbox" spellcheck="false" placeholder="例：&#10;美味香腸&#10;獵人之路 大動作&#10;審計"></textarea>
+      <textarea id="qbox" spellcheck="false" placeholder="例：&#10;美味香腸&#10;獵人之路 大動作&#10;Kings of the Rooftops"></textarea>
       <div class="search__row">
         <button class="btn btn--go" type="submit">查詢</button>
         <button class="btn" type="button" id="clear">清空</button>
-        <span class="search__hint">Ctrl + Enter 查詢 · 繁簡皆可 · 前面的編號會自動忽略</span>
+        <span class="search__hint">Ctrl + Enter 查詢 · 繁簡英皆可 · 前面的編號會自動忽略</span>
       </div>
       <div class="result" id="result" aria-live="polite"></div>
     </form>
@@ -387,7 +388,7 @@ function toCn(s){
   return out;
 }
 const norm=s=>toCn(String(s||"").toLowerCase()).replace(/[\s\-–—－·・、,，.。!！?？()（）【】「」『』"'：:]/g,"");
-const index=D.quests.map(q=>({q,keys:[...new Set([q.name,q.name_cn,...(q.aliases||[])].map(norm))]}));
+const index=D.quests.map(q=>({q,keys:[...new Set([q.name,q.name_cn,q.name_en,...(q.aliases||[])].filter(Boolean).map(norm))]}));
 function bigrams(s){const a=[];for(let i=0;i<s.length-1;i++)a.push(s.slice(i,i+2));return a.length?a:[s];}
 function similar(a,b){
   const A=bigrams(a),B=bigrams(b);let m=0;const used=new Array(B.length).fill(false);
@@ -429,7 +430,7 @@ function run(text,save=true){
   document.getElementById("result").innerHTML=
     (lines.length?`<span>找到 ${current.length} 個任務</span>`:"")+
     miss.map(m=>`<span class="is-miss">找不到：${esc(m.name)}${m.suggest.length?`　是不是要找：${m.suggest.map(q=>
-      `<button type="button" class="sug" data-from="${esc(m.name)}" data-to="${esc(q.name)}">${esc(q.name)}</button>`).join(" ")}`:""}</span>`).join("")+
+      `<button type="button" class="sug" data-from="${esc(m.name)}" data-to="${esc(q.name)}">${esc(q.name)}${/^[\x00-\x7f]+$/.test(m.name)&&q.name_en?`（${esc(q.name_en)}）`:""}</button>`).join(" ")}`:""}</span>`).join("")+
     multi.map(m=>`<span class="is-multi">多個符合：${esc(m)}</span>`).join("");
   if(save){store.set("tarkov.q",text); history.replaceState(null,"","#q="+encodeURIComponent(lines.join(",")));}
   render();
@@ -461,7 +462,7 @@ function renderBrowse(){
   document.getElementById("browseSum").textContent=`瀏覽全部 ${D.quests.length} 個任務（點一下加入／移除查詢）`;
   document.getElementById("browseBody").innerHTML=Object.keys(by).sort().map(t=>`
     <div class="bgroup"><div class="bgroup__t" style="color:${tcol(t)}">${esc(t)}</div>
-    <div class="bgroup__list">${by[t].map(q=>`<button type="button" class="bq${inSet.has(q.id)?" is-in":""}${hasPins(q)?"":" is-nomap"}" data-id="${q.id}" title="${esc(q.maps.join("、")||"不限地圖")}${hasPins(q)?"":"（沒有標點）"}">${esc(q.name)}</button>`).join("")}</div></div>`).join("")
+    <div class="bgroup__list">${by[t].map(q=>`<button type="button" class="bq${inSet.has(q.id)?" is-in":""}${hasPins(q)?"":" is-nomap"}" data-id="${q.id}" title="${esc((q.name_en?q.name_en+" · ":"")+(q.maps.join("、")||"不限地圖"))}${hasPins(q)?"":"（沒有標點）"}">${esc(q.name)}</button>`).join("")}</div></div>`).join("")
     +`<div class="dim">名稱後面有「·」的任務在地圖上沒有標點（例如擊殺、存活、不限地圖的任務）。</div>`;
 }
 document.getElementById("bfilter").addEventListener("click",e=>{
@@ -683,13 +684,13 @@ function renderList(){
       const th=s.images.length?`<div class="thumbs">${s.images.map((im,j)=>`<button class="thumb" type="button" data-i="${i}" data-s="${si}" data-j="${j}" aria-label="放大截圖"><img src="${im}" alt="" loading="lazy"></button>`).join("")}</div>`:"";
       return `<div class="spot"><div class="spot__h"><span class="spot__t${s.kind==="spawn"?" is-spawn":""}">${esc(title)}</span>${ft}</div>${s.note?`<p class="spot__n">${esc(s.note)}</p>`:""}${th}</div>`;
     }).join("");
-    const queryNote=norm(c.query)!==norm(q.name)&&norm(c.query)!==norm(q.name_cn)?`<span class="q__query">查詢「${esc(c.query)}」</span>`:"";
+    const queryNote=![q.name,q.name_cn,q.name_en].filter(Boolean).some(x=>norm(x)===norm(c.query))?`<span class="q__query">查詢「${esc(c.query)}」</span>`:"";
     return `<article class="q" id="q${i}" data-i="${i}" style="--trader:${tcol(q.trader)}">
       <div class="q__top"><span class="q__num">${String(n).padStart(2,"0")}</span>
         <h3 class="q__name"><button type="button" data-sel="${i}">${esc(q.name)}</button></h3>
         <span class="q__trader">${esc(q.trader)}${q.ll?" · "+esc(q.ll):""}</span>${lock}
         <a class="q__src" href="${q.url}" target="_blank" rel="noopener" title="在原站開啟">原站 ↗</a></div>
-      <div class="q__sub"><span class="q__maps">${esc(q.maps.join("、")||"不限地圖")}</span>${queryNote}</div>
+      <div class="q__sub">${q.name_en?`<span class="q__en" lang="en">${esc(q.name_en)}</span>`:""}<span class="q__maps">${esc(q.maps.join("、")||"不限地圖")}</span>${queryNote}</div>
       <div class="q__body">
         <div class="row"><span class="k">目標</span><div class="v"><ul>${q.goals.map(g=>`<li>${esc(g)}</li>`).join("")}</ul></div></div>
         ${need?`<div class="row"><span class="k">需要</span><div class="v need">${need}</div></div>`:""}
